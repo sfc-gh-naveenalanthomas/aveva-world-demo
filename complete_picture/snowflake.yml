@@ -1,0 +1,15 @@
+definition_version: 2
+entities:
+  complete_picture_demo:
+    type: streamlit
+    identifier:
+      name: COMPLETE_PICTURE_DEMO
+      database: AVEVA_CONNECT
+      schema: PUBLIC
+    stage: AVEVA_CONNECT.PUBLIC.COMPLETE_PICTURE_STAGE
+    query_warehouse: COMPUTE_WH
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - Presentation_arch.png

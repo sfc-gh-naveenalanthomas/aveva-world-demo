@@ -1,0 +1,14 @@
+definition_version: 2
+entities:
+  aveva_demo_consolidated:
+    type: streamlit
+    identifier:
+      name: AVEVA_DEMO_CONSOLIDATED
+      database: AVEVA_CONNECT
+      schema: PUBLIC
+    stage: AVEVA_CONNECT.PUBLIC.CONSOLIDATED_DEMO_STAGE
+    query_warehouse: COMPUTE_WH
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - environment.yml

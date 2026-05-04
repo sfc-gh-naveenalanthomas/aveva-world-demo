@@ -1,0 +1,16 @@
+definition_version: 2
+entities:
+  fleet_ops_dashboard:
+    type: streamlit
+    identifier:
+      name: WEATHER_AWARE_FLEET_OPS
+      database: AVEVA_FLEET_OPS
+      schema: STREAMLIT
+    stage: AVEVA_FLEET_OPS.STREAMLIT.FLEET_OPS_STAGE
+    query_warehouse: COMPUTE_WH
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - .streamlit/config.toml
+      - Presentation_arch_diagram.png

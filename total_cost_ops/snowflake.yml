@@ -1,0 +1,15 @@
+definition_version: 2
+entities:
+  TOTAL_COST_OPS:
+    type: streamlit
+    identifier:
+      name: TOTAL_COST_OPS
+      database: AVEVA_WORLD_DEMOS
+      schema: STREAMLIT_APPS
+    stage: AVEVA_WORLD_DEMOS.STREAMLIT_APPS.TOTAL_COST_OPS_STAGE
+    query_warehouse: COMPUTE_WH
+    main_file: streamlit_app.py
+    artifacts:
+      - streamlit_app.py
+      - environment.yml
+      - Presentation_arch.png

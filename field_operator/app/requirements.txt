@@ -1,0 +1,3 @@
+flask>=3.0
+snowflake-connector-python>=3.6
+requests>=2.31

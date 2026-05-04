@@ -1,0 +1,12 @@
+services:
+  field-ai:
+    build: ./app
+    ports:
+      - "5001:5001"
+    volumes:
+      - ~/.snowflake:/root/.snowflake:ro
+    environment:
+      - SNOWFLAKE_ACCOUNT=SFSENORTHAMERICA-POLARIS1
+      - SNOWFLAKE_USER=nthomas
+      - SNOWFLAKE_WAREHOUSE=compute_wh
+      - SNOWFLAKE_ROLE=accountadmin
