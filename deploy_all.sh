@@ -22,10 +22,6 @@
 #   2. Complete Picture     → AVEVA_CONNECT.PUBLIC.COMPLETE_PICTURE_DEMO
 #   3. Fleet Ops            → AVEVA_FLEET_OPS.STREAMLIT.WEATHER_AWARE_FLEET_OPS
 #   4. Total Cost Ops       → AVEVA_WORLD_DEMOS.STREAMLIT_APPS.TOTAL_COST_OPS
-#
-# Optional (uncomment below):
-#   5. Field Operator (SiS) → AVEVA_CONNECT.PUBLIC.FIELD_OPERATOR_DEMO
-#   6. Ennatuurlijk         → AVEVA_CONNECT.PUBLIC.ENNATUURLIJK_DEMO
 # =============================================================================
 
 set -euo pipefail
@@ -136,15 +132,6 @@ deploy_app "consolidated_demo"  "Consolidated Demo (AVEVA_CONNECT.PUBLIC)"
 deploy_app "complete_picture"   "Complete Picture (AVEVA_CONNECT.PUBLIC)"
 deploy_app "build2_fleet_ops"   "Fleet Ops (AVEVA_FLEET_OPS.STREAMLIT)"
 deploy_app "total_cost_ops"     "Total Cost Ops (AVEVA_WORLD_DEMOS.STREAMLIT_APPS)"
-
-# ---------------------------------------------------------------------------
-# Optional: Deploy additional apps (uncomment to include)
-# ---------------------------------------------------------------------------
-# echo ""
-# echo "--- Optional Apps ---"
-# echo ""
-# deploy_app "field_operator"     "Field Operator SiS (AVEVA_CONNECT.PUBLIC)"
-# deploy_app "ennatuurlijk_demo"  "Ennatuurlijk (AVEVA_CONNECT.PUBLIC)"
 
 # ---------------------------------------------------------------------------
 # Summary

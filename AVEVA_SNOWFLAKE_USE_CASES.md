@@ -302,119 +302,10 @@ All CLD tables are read-only Iceberg tables. Snowflake reads them in place — z
 
 **Note:** This app uses direct `CORTEX.COMPLETE` — no Cortex Agent, no Cortex Search, no Semantic Views. All queries are inline SQL. The Salesforce CRM data is simulated by the CONTRACTS/DELIVERIES tables.
 
----
-
-# Use Case 4: AVEVA Snowline — Mobile AI for Field Operators (The Edge)
-
-**App:** Docker container (Flask + HTML/CSS/JS) calling `AVEVA_CONNECT.PUBLIC.FIELD_OPERATOR_AGENT`
-**Also available as:** `AVEVA_CONNECT.PUBLIC.FIELD_OPERATOR_DEMO` (SiS phone mockup version)
-**Focus:** Same AI intelligence from the operations center, delivered to a phone for 3 field personas
-**Runtime:** ~5 minutes (3 personas × 90 seconds)
-
-## Data Sources (3, accessed via Cortex Agent tools)
-
-| Agent Tool | Snowflake Object | What It Queries |
-|------------|-----------------|-----------------|
-| `query_truck_data` | `AVEVA_FLEET_OPS.STREAMLIT.FLEET_SEMANTIC_VIEW` (over `TRUCK_DATA_PIVOTED`) | 10 trucks, 24 sensor metrics: coolant temp, brake temps (4 positions), fuel rate, ground speed, payload, suspension (4 positions), exhaust temps (L/R), engine load, oil pressure, GPS |
-| `query_pump_data` | `AVEVA_CONNECT.PUBLIC.PUMP_SEMANTIC_VIEW` (over `PUMP_DATA_PIVOTED`) | 25 pumps, 23 sensor metrics: bearing temps (actual + predicted for 3 positions), vibration (X/Y for inboard/outboard), efficiency, motor current/power/amps, pump speed, discharge pressure/flow, ambient temp (actual + predicted), run hours (since maintenance + total) |
-| `knowledge_search` | `AVEVA_CONNECT.PUBLIC.INDUSTRIAL_DOCS_SEARCH` | 28 documents: SKF bearing bulletins, Sulzer pump guides, WEG motor specs, maintenance SOPs, incident reports, safety procedures, API/AWWA standards |
-
-## Snowflake Objects Created (setup.sql)
-
-| Object | Details |
-|--------|---------|
-| `PUMP_DATA_PIVOTED` (view) | Pivots narrow CLD pump data into hourly aggregated rows with 23 named columns. Source: `AVEVA_CLD_DATA."f6dd054e-...".water_leakage_pump_narrow_live` |
-| `PUMP_SEMANTIC_VIEW` | 23 facts (all bearing temps actual + predicted, vibration X/Y, efficiency, current, power, speed, pressure, flow, ambient, run hours) + 5 dimensions (pump, timestamp, date, day_of_week, hour_of_day). Each fact has operational thresholds in comments. |
-| `FIELD_OPERATOR_AGENT` | Cortex Agent with 3 tools, system prompt optimized for mobile: "Be concise — users are on mobile devices", "Always include clear YES/NO/MONITOR recommendation", "Format for mobile: short paragraphs, bullet points, bold key numbers". Budget: 120 seconds, 50,000 tokens. |
-
-## Architecture
-
-```
-Photorealistic iPhone Mockup (HTML/CSS/JS)
-    │
-    ├── 3 Persona Tabs: Plant Manager | Truck Operator | Maint. Planner
-    ├── Per-persona alerts (CRITICAL/WARNING) with tap-to-ask
-    ├── Quick-action chips (4 per persona)
-    ├── Chat interface with SSE streaming
-    ├── English/Italian language toggle
-    │
-    └── Flask Backend (server.py)
-            │
-            ├── POST /api/chat (non-streaming, JSON response)
-            ├── POST /api/chat/stream (SSE streaming)
-            │       │
-            │       └── Cortex Agent REST API
-            │           POST /api/v2/databases/AVEVA_CONNECT/schemas/PUBLIC/agents/FIELD_OPERATOR_AGENT:run
-            │           │
-            │           ├── Tool 1: query_truck_data (text-to-SQL → FLEET_SEMANTIC_VIEW)
-            │           ├── Tool 2: query_pump_data (text-to-SQL → PUMP_SEMANTIC_VIEW)
-            │           └── Tool 3: knowledge_search (Cortex Search → INDUSTRIAL_DOCS_SEARCH)
-            │
-            └── POST-response: SNOWFLAKE.CORTEX.TRANSLATE(response, 'en', 'it')
-                (if Italian language selected)
-```
-
-## Three Personas — What Each Sees and Does
-
-### Plant Manager
-**Alerts:**
-- CRITICAL: "Truck 108 — Coolant Running Hot" (Engine coolant trending near 96°C)
-- WARNING: "Pump DMA04 — Bearing Deviation" (PMP-DMA04A-06 bearing temps above prediction)
-
-**Quick Actions:** Fleet overview | Pump health | Worst performers | Run hours check
-
-**When they tap the coolant alert, the agent:**
-1. Receives: "Pull the latest coolant temperature readings for Truck 108 from the last 24 hours. Is it running above normal? What's the max value and should I authorize pulling it from the haul road?"
-2. Calls `query_truck_data` tool → SQL against FLEET_SEMANTIC_VIEW
-3. Returns specific temperature value, compares to 85–95°C normal range, gives YES/NO recommendation
-
-### Truck Operator
-**Alerts:**
-- URGENT: "Your Truck — Coolant Alert" (Truck 108 coolant may be spiking)
-- CAUTION: "Brake Temperature Warning" (Check brake temps before hauling)
-
-**Push Notification:** Animated slide-in notification when switching to this tab: "COOLANT ALERT — Truck 108. Engine coolant temperature spiking."
-
-**Quick Actions:** Coolant check | Brake temps | Fuel usage | End-of-shift
-
-**When they tap the push notification, the agent:**
-1. Receives: "I'm driving Truck 108 and my dashboard is showing high coolant temperature. Pull the latest coolant readings. What's the current value? Is it safe to keep driving or should I pull over?"
-2. Calls `query_truck_data` tool
-3. Returns concise mobile-formatted answer with clear action item
-
-### Maintenance Planner
-**Alerts:**
-- OVERDUE: "PMP-DMA02D-21 — High Run Hours" (Run hours may exceed 2400h maintenance interval)
-- PLAN: "Truck 108 — Coolant Follow-Up" (Plan inspection after high coolant readings)
-
-**Quick Actions:** Parts needed | Priority ranking | Cost comparison | Pump efficiency
-
-**When they tap the pump alert, the agent:**
-1. Receives: "What are the current run hours for PMP-DMA02D-21? How does it compare to the fleet average? Check what the SOP says about maintenance intervals and what spare parts we need for a bearing replacement."
-2. Calls **two tools in one turn**: `query_pump_data` (actual run hours) + `knowledge_search` (maintenance SOP + parts list)
-3. Returns: actual run hours from live data, recommended interval from OEM docs, specific parts to order — three data sources combined
-
-## UI Implementation Details
-
-- **Photorealistic iPhone mockup**: Dynamic Island, status bar with signal/battery, 410px wide, 780px screen
-- **Per-persona chat persistence**: Chat history cached per persona — switching tabs preserves conversations
-- **SSE streaming**: Word-by-word response rendering via Server-Sent Events, with live character count and elapsed time in the API log panel
-- **API log panel**: Shows the actual REST call being made — method, endpoint, headers (token masked), request body, response stream, HTTP status, elapsed time
-- **Data source cards** (left panel): AVEVA Trucks (3.8M+ rows), AVEVA Pumps (7.6M+ rows), Industrial Knowledge Base (28 docs)
-- **English/Italian toggle**: Agent always reasons in English. If Italian selected, response is translated via `SNOWFLAKE.CORTEX.TRANSLATE(text, 'en', 'it')` and a `translated` SSE event replaces the English bubble. Cortex Translate sometimes converts `\n` to `<BR>` tags — the server normalizes these back.
-- **i18n**: All UI strings (alerts, chip labels, status text, placeholders) have Italian translations
-
-## Cortex AI Functions Used
-| Function | Purpose |
-|----------|---------|
-| Cortex Agent REST API (`FIELD_OPERATOR_AGENT`) | Multi-tool orchestration: text-to-SQL (trucks), text-to-SQL (pumps), knowledge search |
-| `cortex_analyst_text_to_sql` (via Agent) | Natural language → SQL over Semantic Views |
-| `cortex_search` (via Agent) | Semantic search over 28 industrial documents |
-| `SNOWFLAKE.CORTEX.TRANSLATE` | English → Italian translation |
 
 ---
 
-# Use Case 5: Consolidated Operations Center
+# Use Case 4: Consolidated Operations Center
 
 **App:** `AVEVA_CONNECT.PUBLIC.AVEVA_DEMO_CONSOLIDATED` (Streamlit in Snowflake)
 **Focus:** Combines asset health, fleet ops, and cost optimization into one 3-tab app with an AI agent on every screen
@@ -478,7 +369,7 @@ Photorealistic iPhone Mockup (HTML/CSS/JS)
 |------------|:---:|:---:|:---:|:---:|:---:|
 | **Cortex COMPLETE** | Step 1 + Step 3 analysis | Health score, deployment plan, anomaly narrative, weather impact | Failure prediction, 7-day optimization, conversational AI | — (via Agent) | Step 1 + Step 3, fleet score, briefing, savings agent |
 | **Cortex Search** | Step 2 knowledge retrieval (28 docs) | — | — | Via Agent (knowledge_search tool) | Asset health agent chat (RAG) |
-| **Cortex Agent** | — | Talk to Your Data (FLEET_DATA_AGENT) | — | FIELD_OPERATOR_AGENT (3 tools) | Tab 2 Talk to Data (FLEET_DATA_AGENT) |
+| **Cortex Agent** | — | Talk to Your Data (FLEET_DATA_AGENT) | — | — | Tab 2 Talk to Data (FLEET_DATA_AGENT) |
 | **Cortex Analyst** | — | Fallback from Agent | — | Via Agent (text-to-SQL) | Tab 2 fallback |
 | **Semantic Views** | — | FLEET_SEMANTIC_VIEW (24 facts) | — | FLEET + PUMP Semantic Views | FLEET_SEMANTIC_VIEW |
 | **Cortex Translate** | es/fr/pt output | — | — | English/Italian toggle | — |
@@ -496,9 +387,9 @@ Photorealistic iPhone Mockup (HTML/CSS/JS)
 | **Knowledge Base** | 28 industrial documents — OEM bulletins, SOPs, incident reports, standards — via Cortex Search |
 | **AI Model** | mistral-large2 via Cortex COMPLETE |
 | **Search Embedding** | snowflake-arctic-embed-m-v1.5 via Cortex Search |
-| **Agents** | FLEET_DATA_AGENT (1 tool: truck text-to-SQL), FIELD_OPERATOR_AGENT (3 tools: truck SQL + pump SQL + knowledge search) |
+| **Agents** | FLEET_DATA_AGENT (1 tool: truck text-to-SQL),  |
 | **Semantic Views** | FLEET_SEMANTIC_VIEW (24 facts, 5 dims), PUMP_SEMANTIC_VIEW (23 facts, 5 dims) |
-| **Apps** | 4 Streamlit-in-Snowflake apps + 1 Docker mobile app + 1 SiS phone mockup |
+| **Apps** | 4 Streamlit-in-Snowflake apps |
 | **Deployment** | Polaris (AWS, SFSENORTHAMERICA-POLARIS1) + AVEVA (Azure, AVEVA-AWCMILAN2026) |
 | **CLD Auto-Detection** | Apps try `CONNECT_AWC26` first (AVEVA account), fall back to `AVEVA_CLD_DATA` (Polaris) |
 | **Marketplace Fallback** | Apps auto-detect real Marketplace DBs, fall back to fabricated sample tables on accounts without listings |
